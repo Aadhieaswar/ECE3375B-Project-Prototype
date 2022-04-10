@@ -11,6 +11,7 @@ int getADC();
 void setColour(void);
 void checkAudio();
 void checkBtn(void);
+void resetAudioBuffer(void);
 int power(int, int);
 void delay(int);
 
@@ -192,9 +193,10 @@ void checkAudio() {
 				
 				if (buffer_index == BUF_SIZE) {
 					// done playback
-					play_sound = 0;
-					*LED_ptr = 0;
+					play_sound = 0;	
 				}
+				
+				*LED_ptr = 0;
 
 				fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
 			}
@@ -210,12 +212,35 @@ void checkBtn(void) {
 	;
 	
 	if (key_switch == 1 || sw == 1) {
+		
+		resetAudioBuffer();
+		
 		buffer_index = 0;
 		
 		*(AUDIO_ptr) = 0x8;
 		*(AUDIO_ptr) = 0x0;
 		
 		play_sound = 1;
+	}
+}
+
+void resetAudioBuffer(void) {
+	buffer_index = 0;
+	
+	*(AUDIO_ptr) = 0x4;
+	*(AUDIO_ptr) = 0x0;
+	
+	fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
+	if ((fifospace & 0x000000FF) > BUF_THRESHOLD) // check RARC
+	{
+		// store data until the the audio-in FIFO is empty or the buffer is full
+		while ((fifospace & 0x000000FF) && (buffer_index < BUF_SIZE)) {
+			left_buffer[buffer_index] = *(AUDIO_ptr + 2);
+			right_buffer[buffer_index] = *(AUDIO_ptr + 3);
+			++buffer_index;
+			
+			fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
+		}
 	}
 }
 
