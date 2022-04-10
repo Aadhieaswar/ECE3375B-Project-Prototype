@@ -21,6 +21,7 @@ typedef enum { True, False } boolean;
 boolean locked = False;
 int scale = 0;
 int sitting = 0;
+int record = 0, play = 0, buffer_index = 0;
 
 volatile int * HEX1_ptr = (int *) 0xFF200020; // pointer to the last 4 seven-segment displays
 volatile int * HEX2_ptr = (int *) 0xFF200030; // pointer to the first 2 seven segment displays
@@ -40,7 +41,6 @@ int main(void) {
 	volatile int * HEX2_ptr = (int *) 0xFF200030; // pointer to the first 2 seven segment displays
 	/* used for audio record/playback */
 	int fifospace;
-	int record = 0, play = 0, buffer_index = 0;
 	int left_buffer[BUF_SIZE];
 	int right_buffer[BUF_SIZE];
 	/* read and echo audio data */
@@ -76,6 +76,7 @@ int main(void) {
 	}
 }
 
+
 void check_KEYs(int * KEY0, int * KEY1, int * counter) {
 	volatile int * KEY_ptr = (int *)0xFF200050;
 	volatile int * audio_ptr = (int *)0xFF203040;
@@ -83,6 +84,7 @@ void check_KEYs(int * KEY0, int * KEY1, int * counter) {
 	KEY_value = *(KEY_ptr); // read the pushbutton KEY values
 	
 	while (*KEY_ptr)
+		*red_LED_ptr = 1;
 		; // wait for pushbutton KEY release
 	if (KEY_value == 0x1){
 			// reset counter to start playback
@@ -145,6 +147,7 @@ void checkPressure(void) {
 		{
 			spray();
 			sitting = 0;
+			play = 1;
 		}
 		
     }
