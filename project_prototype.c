@@ -23,9 +23,8 @@ volatile int * HEX2_ptr = (int *) 0xFF200030; // pointer to the first 2 seven se
 const int * SW_ptr = (int *) 0xFF200040; // pointer to the flip switches
 const int * KEY_ptr = (int *) 0xFF200050; // pointer to the push buttons
 
-int * LED_ptr = (int *) 0xFF200000; // pointer to the LEDs
 
-volatile int * AUDIO_ptr = (int *) 0xFF203040; // pointer to the audio
+int * LED_ptr = (int *) 0xFF200000; // pointer to the LEDs
 
 // GPIO and units converter variables
 int * ADC_BASE_ptr = (int *) ADC_BASE;
@@ -35,11 +34,6 @@ boolean locked = False;
 int sitting = 0;
 int scale = 0;
 
-// used for audio
-int fifospace;
-int record = 0, playback = 0, buffer_index = 0;
-int left_buffer[BUF_SIZE];
-int right_buffer[BUF_SIZE];
 
 const unsigned char hexDisplay[10] = {
     0x3f, 0x06, 0x5b, 0x4f, 0x66,
@@ -49,14 +43,14 @@ const unsigned char hexDisplay[10] = {
 // main method
 int main(void) {
 	*(GPIO_BASE_ptr + 1) = 0x000003FF;
-
+	
     // infinite loop to keep the program running
     while (1) {
 		setColour();
-
+		
         *HEX1_ptr = 0;
 		*HEX2_ptr = 0;
-
+		
 		checkPressure();
     }
 }
@@ -66,7 +60,7 @@ void spray(void) {
 
     volatile int SPRAY_HEX2 = 0x6D73; // 'SP' display on the hex display
     volatile int SPRAY_HEX1 = 0x50776E00; // 'RAY' display on the hex display
-
+	
 	SPRAY_HEX1 += hexDisplay[scale];
 
     // set the display for the seven segment dispay
@@ -74,12 +68,13 @@ void spray(void) {
     *HEX2_ptr = SPRAY_HEX2;
 
     delay(1);
-
+	
 	SPRAY_HEX2 = 0; // 'SP' display on the hex display
     SPRAY_HEX1 = 0; // 'RAY' display on the hex display
-
+	
 	*HEX1_ptr = SPRAY_HEX1;
     *HEX2_ptr = SPRAY_HEX2;
+    
 }
 
 // function to simulate manual locking an unlocking of the door
@@ -104,34 +99,36 @@ void checkPressure(void) {
 		sitting = 1;
     } else {
         *LED_ptr = 0;
-		if(sitting == 1) {
+		if(sitting == 1)
+		{
 			spray();
 			sitting = 0;
 		}
+		
     }
 }
 
 int getADC() {
 	// mask for the GPIO port (input/output)
 	int mask = 0x00000FFF;
-
+	
 	*(ADC_BASE_ptr) = 0; // write anything to channel 0 to update ADC
 	*(ADC_BASE_ptr + 1) = 0;
 	volatile int channel0, channel2;
 	channel0 = (*(ADC_BASE_ptr) & mask);
 	channel2 = (*(ADC_BASE_ptr +1) & mask);
-
+	
 	int key = *SW_ptr & 0x2;
 	if (key == 0) {
 		return channel0;
 	}
-
+	
 	if (key == 2) {
 		return channel2;
 	}
 }
 
-//
+// 
 int setColour(void) {
 
 	scale = 0;
@@ -166,12 +163,7 @@ int setColour(void) {
 	if (getADC() > 4000) {
 		scale = 10;
 	}
-
 	*(GPIO_BASE_ptr) = power(2,scale)-1; //Making he LED's light up
-
-}
-
-void audio() {
 
 }
 
@@ -181,7 +173,6 @@ int power(int x, int y){
 		return 1;
     return (x * power(x,y-1) );
 }
-
 // function to delay the program
 void delay(int seconds) {
     // Converting time into milli_seconds
@@ -194,5 +185,5 @@ void delay(int seconds) {
     while (clock() < start + ms)
 		;
 }
-
-
+	
+	
