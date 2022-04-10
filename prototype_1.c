@@ -34,6 +34,67 @@ volatile int * AUDIO_ptr = (int *) 0xFF203040; // pointer to the audio
 int * ADC_BASE_ptr = (int *) 0xFF204000;
 int * GPIO_BASE_ptr = (int *) 0xFF200060;
 
+//Used for storing the sounds to be fed to the 
+    double sounds[56] = {0,
+        11088262851,
+        22039774346,
+        32719469680,
+        42995636353,
+        52741538578,
+        61836980307,
+        70169787615,
+        77637192131,
+        84147098481,
+        89619220103,
+        93986069415,
+        97193790137,
+        99202821505,
+        99988386170,
+        99540795776,
+        97865570447,
+        94983370710,
+        90929742683,
+        85754679693,
+        79522005703,
+        72308588174,
+        64203390063,
+        55306372638,
+        45727262664,
+        35584199141,
+        25002276297,
+        14112000806,
+        3047682251,
+        -8054223318,
+        -19056796288,
+        -29824342115,
+        -40224064839,
+        -50127704859,
+        -59413120751,
+        -67965795640,
+        -75680249531,
+        -82461340198,
+        -88225436564,
+        -92901450128,
+        -96431711693,
+        -98772682606,
+        -99895491710,
+        -99786291422,
+        -98446428505,
+        -95892427467,
+        -92155786758,
+        -87282590306,
+        -81332939157,
+        -74380210259,
+        -66510151498,
+        -57819824175,
+        -48416405947,
+        -38415869012,
+        -27941549820,
+        -17122627972,
+    };
+
+int soundCounter = 0;
+
 boolean locked = False;
 int sitting = 0;
 int scale = 0;
@@ -43,6 +104,9 @@ int fifospace;
 int play_sound = 0, buffer_index = 0;
 int left_buffer[BUF_SIZE];
 int right_buffer[BUF_SIZE];
+
+volatile int delay_count;
+int DELAY_LENGTH = 10;
 
 const unsigned char hexDisplay[10] = {
     0x3f, 0x06, 0x5b, 0x4f, 0x66,
@@ -235,9 +299,17 @@ void resetAudioBuffer(void) {
 	{
 		// store data until the the audio-in FIFO is empty or the buffer is full
 		while ((fifospace & 0x000000FF) && (buffer_index < BUF_SIZE)) {
-			left_buffer[buffer_index] = *(AUDIO_ptr + 2);
-			right_buffer[buffer_index] = *(AUDIO_ptr + 3);
+			left_buffer[buffer_index] = sounds[soundCounter];
+			right_buffer[buffer_index] = sounds[soundCounter];
 			++buffer_index;
+
+			//SAW TOOTH PATTERN GOES HERE
+            for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count)
+				; 
+
+			if(soundCounter > 56){
+				soundCounter = 0;
+			}
 			
 			fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
 		}
