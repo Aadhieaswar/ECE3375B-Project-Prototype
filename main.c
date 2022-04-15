@@ -8,7 +8,7 @@ void spray(void);
 void checkLock(void);
 void checkPressure(void);
 int getADC();
-void setColour(void);
+void setSprayIntensity(void);
 void checkAudio();
 void checkBtn(void);
 void resetAudioBuffer(void);
@@ -34,30 +34,93 @@ volatile int * AUDIO_ptr = (int *) 0xFF203040; // pointer to the audio
 int * ADC_BASE_ptr = (int *) 0xFF204000;
 int * GPIO_BASE_ptr = (int *) 0xFF200060;
 
+// variables for the logic of the code
 boolean locked = False;
 int sitting = 0;
 int scale = 0;
 
-// used for audio
+// variables needed for audio I/O 
 int fifospace;
 int play_sound = 0, buffer_index = 0;
 int left_buffer[BUF_SIZE];
 int right_buffer[BUF_SIZE];
+volatile int delay_count;
+int DELAY_LENGTH = 10;
+int soundCounter = 0;
+double sounds[56] = { // used to store the sounds
+	0,
+	11088262851,
+	22039774346,
+	32719469680,
+	42995636353,
+	52741538578,
+	61836980307,
+	70169787615,
+	77637192131,
+	84147098481,
+	89619220103,
+	93986069415,
+	97193790137,
+	99202821505,
+	99988386170,
+	99540795776,
+	97865570447,
+	94983370710,
+	90929742683,
+	85754679693,
+	79522005703,
+	72308588174,
+	64203390063,
+	55306372638,
+	45727262664,
+	35584199141,
+	25002276297,
+	14112000806,
+	3047682251,
+	-8054223318,
+	-19056796288,
+	-29824342115,
+	-40224064839,
+	-50127704859,
+	-59413120751,
+	-67965795640,
+	-75680249531,
+	-82461340198,
+	-88225436564,
+	-92901450128,
+	-96431711693,
+	-98772682606,
+	-99895491710,
+	-99786291422,
+	-98446428505,
+	-95892427467,
+	-92155786758,
+	-87282590306,
+	-81332939157,
+	-74380210259,
+	-66510151498,
+	-57819824175,
+	-48416405947,
+	-38415869012,
+	-27941549820,
+	-17122627972,
+};
 
+// array with the hex for the seven segment display
 const unsigned char hexDisplay[10] = {
     0x3f, 0x06, 0x5b, 0x4f, 0x66,
     0x6d, 0x7d, 0x07, 0x7f, 0x6f
 };
 
-
 // main method
 int main(void) {
+	// set the GPIO input and output pin config
 	*(GPIO_BASE_ptr + 1) = 0x000003FF;
 
     // infinite loop to keep the program running
     while (1) {
 		
-		setColour();
+		setSprayIntensity();
 
         *HEX1_ptr = 0;
 		*HEX2_ptr = 0;
@@ -74,6 +137,7 @@ void spray(void) {
     volatile int SPRAY_HEX2 = 0x6D73; // 'SP' display on the hex display
     volatile int SPRAY_HEX1 = 0x50776E00; // 'RAY' display on the hex display
 
+	// add the intensity of the spray next to the text
 	SPRAY_HEX1 += hexDisplay[scale];
 
     // set the display for the seven segment dispay
@@ -82,11 +146,9 @@ void spray(void) {
 
     delay(1);
 
-	SPRAY_HEX2 = 0; // 'SP' display on the hex display
-    SPRAY_HEX1 = 0; // 'RAY' display on the hex display
-
-	*HEX1_ptr = SPRAY_HEX1;
-    *HEX2_ptr = SPRAY_HEX2;
+	// clear the hex display
+	*HEX1_ptr = 0x00;
+    *HEX2_ptr = 0x00;
 }
 
 // function to simulate manual locking an unlocking of the door
@@ -119,25 +181,20 @@ void checkPressure(void) {
 }
 
 int getADC() {
-	// mask for the GPIO port (input/output)
+	// mask for the GPIO port (input of first 12 bits)
 	int mask = 0x00000FFF;
 
 	*(ADC_BASE_ptr) = 0; // write anything to channel 0 to update ADC
-	*(ADC_BASE_ptr + 1) = 0;
-	volatile int channel0, channel2;
-	channel0 = (*(ADC_BASE_ptr) & mask);
-	channel2 = (*(ADC_BASE_ptr +1) & mask);
 
-	int key = *SW_ptr & 0x2;
-	if (key == 2) {
-		return channel2;
-	} else {
-		return channel0;
-	}
+	// access the input from channel 0 using the mask
+	volatile int channel0;
+	channel0 = (*(ADC_BASE_ptr) & mask);
+
+	return channel0;
 }
 
-//
-void setColour(void) {
+// get the intensity of the febeeze spray (simulated)
+void setSprayIntensity(void) {
 
 	scale = 0;
 
@@ -172,19 +229,19 @@ void setColour(void) {
 		scale = 10;
 	}
 
-	*(GPIO_BASE_ptr) = power(2,scale)-1; //Making he LED's light up
+	*(GPIO_BASE_ptr) = power(2, scale) - 1;
 
 }
 
+// plays the audio after it loads the audio buffer
 void checkAudio() {
 	checkBtn();
 	
 	if (play_sound) {
 		fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
 		
-		if ((fifospace & 0x00FF0000) > BUF_THRESHOLD) { // check WSRC
-			// output data until the buffer is empty or the audio-out FIFO
-			// is full
+		if ((fifospace & 0x00FF0000) > BUF_THRESHOLD) {
+			// while loop to fill the sound
 			while ((fifospace & 0x00FF0000) && (buffer_index < BUF_SIZE)) {
 				*(AUDIO_ptr + 2) = left_buffer[buffer_index];
 				*(AUDIO_ptr + 3) = right_buffer[buffer_index];
@@ -201,6 +258,7 @@ void checkAudio() {
 	}
 }
 
+// method to check whether to play the sound or not
 void checkBtn(void) {
 	int key_switch = *KEY_ptr & 0x01;
 	int sw = *SW_ptr & 0x01;
@@ -221,6 +279,7 @@ void checkBtn(void) {
 	}
 }
 
+// method to fill the audio output buffer
 void resetAudioBuffer(void) {
 	buffer_index = 0;
 	
@@ -228,24 +287,34 @@ void resetAudioBuffer(void) {
 	*(AUDIO_ptr) = 0x0;
 	
 	fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
-	if ((fifospace & 0x000000FF) > BUF_THRESHOLD) // check RARC
+	if ((fifospace & 0x000000FF) > BUF_THRESHOLD)
 	{
-		// store data until the the audio-in FIFO is empty or the buffer is full
+		// store audio into the buffer
 		while ((fifospace & 0x000000FF) && (buffer_index < BUF_SIZE)) {
-			left_buffer[buffer_index] = *(AUDIO_ptr + 2);
-			right_buffer[buffer_index] = *(AUDIO_ptr + 3);
+			left_buffer[buffer_index] = sounds[soundCounter];
+			right_buffer[buffer_index] = sounds[soundCounter];
+
 			++buffer_index;
+			++soundCounter;
 			
+            for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count)
+				; 
+
+			// reset the sound counter when it reaches the end of the array
+			if(soundCounter > 56){
+				soundCounter = 0;
+			}
+
 			fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
 		}
 	}
 }
 
-// lights up the LED's, gets the scale from setColour
-int power(int x, int y){
+// function to get the power of a number
+int power(int x, int y) {
     if(y == 0)
 		return 1;
-    return (x * power(x,y-1) );
+    return (x * power(x, y - 1) );
 }
 
 // function to delay the program
