@@ -42,12 +42,12 @@ int scale = 0;
 // variables needed for audio I/O 
 int fifospace;
 int play_sound = 0, buffer_index = 0;
-int left_buffer[BUF_SIZE];
+int left_buffer[BUF_SIZE]; 
 int right_buffer[BUF_SIZE];
 volatile int delay_count;
 int DELAY_LENGTH = 10;
-int soundCounter = 0;
-double sounds[56] = { // used to store the sounds
+int soundDuration = 0;
+double soundArray[56] = { // used to store the soundArray
 	0,
 	11088262851,
 	22039774346,
@@ -291,18 +291,18 @@ void resetAudioBuffer(void) {
 	{
 		// store audio into the buffer
 		while ((fifospace & 0x000000FF) && (buffer_index < BUF_SIZE)) {
-			left_buffer[buffer_index] = sounds[soundCounter];
-			right_buffer[buffer_index] = sounds[soundCounter];
+			left_buffer[buffer_index] = soundArray[soundDuration];
+			right_buffer[buffer_index] = soundArray[soundDuration];
 
 			++buffer_index;
-			++soundCounter;
+			++soundDuration;
 			
             for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count)
 				; 
 
 			// reset the sound counter when it reaches the end of the array
-			if(soundCounter > 56){
-				soundCounter = 0;
+			if(soundDuration > 56){
+				soundDuration = 0;
 			}
 
 			fifospace = *(AUDIO_ptr + 1); // read the audio port fifospace register
